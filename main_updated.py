@@ -211,8 +211,7 @@ for drugs in drug_set:
             n = n % 11
     hashtable_drug[n] = int(drugs[3:])
 
-
-    def hash_gene(gene_id):
+def hash_gene(gene_id):
     n = gene_id % (2* gene_n)
     while hashtable_gene[n] != gene_id:
         n = n+11
