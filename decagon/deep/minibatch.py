@@ -46,7 +46,9 @@ class EdgeMinibatchIterator(object):
         # Function to build test and val sets with val_test_size positive links
         self.adj_train = {edge_type: [None]*n for edge_type, n in self.edge_types.items()}
         for i, j in self.edge_types:
+            print("i, j: ", i, j)
             for k in range(self.edge_types[i,j]):
+                print("k: ", k)
                 print("Minibatch edge type:", "(%d, %d, %d)" % (i, j, k))
                 self.mask_test_edges((i, j), k)
 
@@ -77,18 +79,34 @@ class EdgeMinibatchIterator(object):
 
     def mask_test_edges(self, edge_type, type_idx):
         edges_all, _, _ = preprocessing.sparse_to_tuple(self.adj_mats[edge_type][type_idx])
-        num_test = max(50, int(np.floor(edges_all.shape[0] * self.val_test_size)))
-        num_val = max(50, int(np.floor(edges_all.shape[0] * self.val_test_size)))
-
+        num_test = max(10, int(np.floor(edges_all.shape[0] * self.val_test_size)))
+        # I changed 50 -> 10
+        num_val = max(10, int(np.floor(edges_all.shape[0] * self.val_test_size)))
+        # I changed 50 -> 10
+        
+        
         all_edge_idx = list(range(edges_all.shape[0]))
         np.random.shuffle(all_edge_idx)
+        
+        #print("AHHHHHHHHHHHHHHHHHHH")
+        #print(edge_type)
+        #print(edges_all.shape[0])
+        #print(all_edge_idx)
+        ##print(num_test)
+        #print("int(np.floor(edges_all.shape[0] * self.val_test_size)): ", int(np.floor(edges_all.shape[0] * self.val_test_size))) 
+        #print(num_val)
+        #print("int(np.floor(edges_all.shape[0] * self.val_test_size)): ", int(np.floor(edges_all.shape[0] * self.val_test_size)))
 
         val_edge_idx = all_edge_idx[:num_val]
         val_edges = edges_all[val_edge_idx]
 
         test_edge_idx = all_edge_idx[num_val:(num_val + num_test)]
         test_edges = edges_all[test_edge_idx]
-
+        
+        #print(val_edge_idx)
+        #print(test_edge_idx)
+        
+        
         train_edges = np.delete(edges_all, np.hstack([test_edge_idx, val_edge_idx]), axis=0)
 
         test_edges_false = []

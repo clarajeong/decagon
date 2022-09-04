@@ -127,6 +127,11 @@ val_test_size = 0.05
 n_genes = 500
 n_drugs = 400
 n_drugdrug_rel_types = 3
+
+
+
+
+
 gene_net = nx.planted_partition_graph(50, 10, 0.2, 0.05, seed=42)
 
 gene_adj = nx.adjacency_matrix(gene_net)
