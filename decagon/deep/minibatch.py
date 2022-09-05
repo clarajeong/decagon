@@ -79,10 +79,12 @@ class EdgeMinibatchIterator(object):
 
     def mask_test_edges(self, edge_type, type_idx):
         edges_all, _, _ = preprocessing.sparse_to_tuple(self.adj_mats[edge_type][type_idx])
-        num_test = max(10, int(np.floor(edges_all.shape[0] * self.val_test_size)))
+        num_test = int(np.floor(edges_all.shape[0] * self.val_test_size))
         # I changed 50 -> 10
-        num_val = max(10, int(np.floor(edges_all.shape[0] * self.val_test_size)))
+        # I changed num_test = max(10, int(np.floor(edges_all.shape[0] * self.val_test_size))) -> num_test = int(np.floor(edges_all.shape[0] * self.val_test_size))
+        num_val = int(np.floor(edges_all.shape[0] * self.val_test_size))
         # I changed 50 -> 10
+        # I changed num_val = max(10, int(np.floor(edges_all.shape[0] * self.val_test_size))) -> num_val = int(np.floor(edges_all.shape[0] * self.val_test_size))
         
         
         all_edge_idx = list(range(edges_all.shape[0]))
