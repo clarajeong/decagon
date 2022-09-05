@@ -136,7 +136,7 @@ import pandas as pd
 np.random.seed(0)
 
 with tf.device("/gpu:0"):
-    
+    print("tf GPU availabe?: ", tf.test.is_gpu_available())
     gene_max = 0
     drug_max = 0
 
