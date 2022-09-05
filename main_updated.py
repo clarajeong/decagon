@@ -29,13 +29,9 @@ tf.disable_eager_execution()
 # Train on CPU (hide GPU) due to memory constraints
 # os.environ['CUDA_VISIBLE_DEVICES'] = ""
 
-# Train on GPU
-os.environ["CUDA_DEVICE_ORDER"] = 'PCI_BUS_ID'
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
 
-np.random.seed(0)
+
+
 
 
 
@@ -137,394 +133,399 @@ val_test_size = 0.05
 import csv
 import pandas as pd
 
+np.random.seed(0)
 
-gene_max = 0
-drug_max = 0
-
-df_ppi = pd.read_csv('/mnt/nas2/seogyeong/bio-decagon-ppi.csv', sep=',', header=0)
-df_targets = pd.read_csv('/mnt/nas2/seogyeong/bio-decagon-targets-all.csv', sep=',', header=0)
-df_combo = pd.read_csv('/mnt/nas2/seogyeong/bio-decagon-combo.csv', sep=',', header=0)
-
-print(df_ppi.values.T[0].shape)
-print(df_ppi.values.T[1].shape)
-print(df_targets.values.T[1].shape)
-temp = list(df_ppi.values.T[0])
-temp.extend(list(df_ppi.values.T[1]))
-temp.extend(list(df_targets.values.T[1]))
-
-gene_set = set(temp)
-# print(gene_set)
-
-
-temp = list(df_combo.values.T[0])
-temp.extend(list(df_combo.values.T[1]))
-temp.extend(list(df_targets.values.T[0]))
-drug_set = set(temp)
-# print(drug_set)
-
-print("numbers")
-gene_n = len(gene_set)
-drug_n = len(drug_set)
-print(gene_n, drug_n)
-
-print("max")
-gene_max = max(gene_set)
-drug_max = 0 
-for drugs in drug_set:
-    # print(drugs)
-    # print(drugs[3:])
-    if drug_max < int(drugs[3:]):
-        drug_max = int(drugs[3:])
-print(gene_max)
-print(drug_max)
-
-
-hashtable_gene = np.zeros(2* gene_n)
-hashtable_drug = np.zeros(2* drug_n)
-
-#make hash
-count = 0
-for genes in gene_set:
-    n = genes % (2* gene_n)
-    if count % 500 == 0:
-        print(count, ", ",genes)
-    count = count + 1
-    while hashtable_gene[n] !=0:
-        n = n+11
-        if n >= 2* gene_n:
-            n = n % 11
-    hashtable_gene[n] = genes
-
+with tf.device("/gpu:0"):
     
+    gene_max = 0
+    drug_max = 0
 
-count = 0
-for drugs in drug_set:
-    
-    if count % 500 == 0:
-        print(count, ", ",drugs)
-    count = count + 1
-    
-    n = int(drugs[3:]) % (2* drug_n)
-    while hashtable_drug[n] !=0:
-        n = n + 11
-        if n >= 2* drug_n:
-            n = n % 11
-    hashtable_drug[n] = int(drugs[3:])
+    df_ppi = pd.read_csv('/mnt/nas2/seogyeong/bio-decagon-ppi.csv', sep=',', header=0)
+    df_targets = pd.read_csv('/mnt/nas2/seogyeong/bio-decagon-targets-all.csv', sep=',', header=0)
+    df_combo = pd.read_csv('/mnt/nas2/seogyeong/bio-decagon-combo.csv', sep=',', header=0)
 
-def hash_gene(gene_id):
-    n = gene_id % (2* gene_n)
-    while hashtable_gene[n] != gene_id:
-        n = n+11
-        if n >= 2*gene_n:
-            n = n % 11
-    return n
+    print(df_ppi.values.T[0].shape)
+    print(df_ppi.values.T[1].shape)
+    print(df_targets.values.T[1].shape)
+    temp = list(df_ppi.values.T[0])
+    temp.extend(list(df_ppi.values.T[1]))
+    temp.extend(list(df_targets.values.T[1]))
 
-def hash_drug(drug_id):
-    n = int(drug_id[3:]) % (2* drug_n)
-    while hashtable_drug[n] != int(drug_id[3:]):
-        n = n+11
-        if n >= 2* drug_n:
-            n = n % 11
-    return n
+    gene_set = set(temp)
+    # print(gene_set)
 
 
-# protein-protein
+    temp = list(df_combo.values.T[0])
+    temp.extend(list(df_combo.values.T[1]))
+    temp.extend(list(df_targets.values.T[0]))
+    drug_set = set(temp)
+    # print(drug_set)
+
+    print("numbers")
+    gene_n = len(gene_set)
+    drug_n = len(drug_set)
+    print(gene_n, drug_n)
+
+    print("max")
+    gene_max = max(gene_set)
+    drug_max = 0 
+    for drugs in drug_set:
+        # print(drugs)
+        # print(drugs[3:])
+        if drug_max < int(drugs[3:]):
+            drug_max = int(drugs[3:])
+    print(gene_max)
+    print(drug_max)
 
 
-gene_adj = sp.csr_matrix((2* gene_n, 2* gene_n), dtype=np.int8)
+    hashtable_gene = np.zeros(2* gene_n)
+    hashtable_drug = np.zeros(2* drug_n)
 
-a =  0
-
-f = open("/mnt/nas2/seogyeong/bio-decagon-ppi.csv")
-reader = csv.reader(f)
-count = 0
-
-print(gene_adj)
-print(gene_adj.shape)
-
-for line in reader:
-    #print(line)
-    count = count + 1
-    if a==0:
-        a=1
-        continue
-    if count % 5000 == 0:
-        print("count: ",count, ", ", line)
-    gene_adj[hash_gene(int(line[0])), hash_gene(int(line[1]))] = 1
-print("hey")
-print(gene_adj)
-gene_degrees = np.array(gene_adj.sum(axis=0)).squeeze()
-print(gene_degrees)
-# print(df)
-
-f.close()
+    #make hash
+    count = 0
+    for genes in gene_set:
+        n = genes % (2* gene_n)
+        if count % 500 == 0:
+            print(count, ", ",genes)
+        count = count + 1
+        while hashtable_gene[n] !=0:
+            n = n+11
+            if n >= 2* gene_n:
+                n = n % 11
+        hashtable_gene[n] = genes
 
 
 
+    count = 0
+    for drugs in drug_set:
 
-# gene_drug_adj = sp.csr_matrix((10 * np.random.randn(n_genes, n_drugs) > 15).astype(int))
-# drug_gene_adj = gene_drug_adj.transpose(copy=True)
+        if count % 500 == 0:
+            print(count, ", ",drugs)
+        count = count + 1
 
-f = open("/mnt/nas2/seogyeong/bio-decagon-targets-all.csv")
-reader = csv.reader(f)
-gene_drug_adj = sp.csr_matrix((2* gene_n, 2* drug_n), dtype=np.int8)
+        n = int(drugs[3:]) % (2* drug_n)
+        while hashtable_drug[n] !=0:
+            n = n + 11
+            if n >= 2* drug_n:
+                n = n % 11
+        hashtable_drug[n] = int(drugs[3:])
 
-a =  0
-count = 0
-for line in reader:
-    #print(line)
-    count = count + 1
-    if a==0:
-        a=1
-        continue
-    if count % 5000 == 0:
-        print("count: ",count, ", ", line)
-    gene_drug_adj[hash_gene(int(line[1])), hash_drug(line[0])] = 1
-print("hey")
-print(gene_drug_adj)
-drug_gene_adj = gene_drug_adj.transpose(copy=True)
-f.close()
+    def hash_gene(gene_id):
+        n = gene_id % (2* gene_n)
+        while hashtable_gene[n] != gene_id:
+            n = n+11
+            if n >= 2*gene_n:
+                n = n % 11
+        return n
 
-
-
-# drug_drug check
-
-
-#drug_drug_adj_list = []
-#tmp = np.dot(drug_gene_adj, gene_drug_adj)
-#for i in range(n_drugdrug_rel_types):
-#    mat = np.zeros((n_drugs, n_drugs))
-#    for d1, d2 in combinations(list(range(n_drugs)), 2):
-#        if tmp[d1, d2] == i + 4:
-#            mat[d1, d2] = mat[d2, d1] = 1.
-#    drug_drug_adj_list.append(sp.csr_matrix(mat))
-#    print("hmm")
-#    print(drug_drug_adj_list)
-# drug_degrees_list = [np.array(drug_adj.sum(axis=0)).squeeze() for drug_adj in drug_drug_adj_list]
+    def hash_drug(drug_id):
+        n = int(drug_id[3:]) % (2* drug_n)
+        while hashtable_drug[n] != int(drug_id[3:]):
+            n = n+11
+            if n >= 2* drug_n:
+                n = n % 11
+        return n
 
 
-drug_drug_adj_list = []
+    # protein-protein
 
-# category
-df = pd.read_csv('/mnt/nas2/seogyeong/bio-decagon-effectcategories.csv', sep=',', header=0)
-print(type(df.values))
-print(df.values.T[0])
-category = df.values.T[0]
 
-category_count = 0
+    gene_adj = sp.csr_matrix((2* gene_n, 2* gene_n), dtype=np.int8)
 
-for cat in category:
-    print("category_count: ", category_count, ", ", cat)
-    gene_drug_adj = sp.csr_matrix((2* drug_n, 2* drug_n), dtype=np.int8)
-    f = open("/mnt/nas2/seogyeong/bio-decagon-combo.csv")
+    a =  0
+
+    f = open("/mnt/nas2/seogyeong/bio-decagon-ppi.csv")
     reader = csv.reader(f)
-    category_count = category_count + 1
+    count = 0
+
+    print(gene_adj)
+    print(gene_adj.shape)
+
     for line in reader:
-        if line[2] == cat:
-            gene_drug_adj[hash_drug(line[0]), hash_drug(line[1]) ] = 1
-            gene_drug_adj[hash_drug(line[1]), hash_drug(line[0]) ] = 1
-    drug_drug_adj_list.append(gene_drug_adj)
+        #print(line)
+        count = count + 1
+        if a==0:
+            a=1
+            continue
+        if count % 5000 == 0:
+            print("count: ",count, ", ", line)
+        gene_adj[hash_gene(int(line[0])), hash_gene(int(line[1]))] = 1
+    print("hey")
+    print(gene_adj)
+    gene_degrees = np.array(gene_adj.sum(axis=0)).squeeze()
+    print(gene_degrees)
+    # print(df)
+
     f.close()
-    
-drug_degrees_list = [np.array(drug_adj.sum(axis=0)).squeeze() for drug_adj in drug_drug_adj_list]
-
-print(drug_drug_adj_list)
-print("GHHHHHHHHHHHHHHHHH")
-print(drug_degrees_list)
-
-
-# data representation
-adj_mats_orig = {
-    (0, 0): [gene_adj, gene_adj.transpose(copy=True)],
-    (0, 1): [gene_drug_adj],
-    (1, 0): [drug_gene_adj],
-    (1, 1): drug_drug_adj_list + [x.transpose(copy=True) for x in drug_drug_adj_list],
-}
-
-
-degrees = {
-    0: [gene_degrees, gene_degrees],
-    1: drug_degrees_list + drug_degrees_list,
-}
 
 
 
 
-# featureless (genes)
-gene_feat = sp.identity(gene_max)
-gene_nonzero_feat, gene_num_feat = gene_feat.shape
-gene_feat = preprocessing.sparse_to_tuple(gene_feat.tocoo())
+    # gene_drug_adj = sp.csr_matrix((10 * np.random.randn(n_genes, n_drugs) > 15).astype(int))
+    # drug_gene_adj = gene_drug_adj.transpose(copy=True)
 
-# features (drugs)
-drug_feat = sp.identity(drug_max)
-drug_nonzero_feat, drug_num_feat = drug_feat.shape
-drug_feat = preprocessing.sparse_to_tuple(drug_feat.tocoo())
+    f = open("/mnt/nas2/seogyeong/bio-decagon-targets-all.csv")
+    reader = csv.reader(f)
+    gene_drug_adj = sp.csr_matrix((2* gene_n, 2* drug_n), dtype=np.int8)
 
-# data representation
-num_feat = {
-    0: gene_num_feat,
-    1: drug_num_feat,
-}
-nonzero_feat = {
-    0: gene_nonzero_feat,
-    1: drug_nonzero_feat,
-}
-feat = {
-    0: gene_feat,
-    1: drug_feat,
-}
-
-edge_type2dim = {k: [adj.shape for adj in adjs] for k, adjs in adj_mats_orig.items()}
-edge_type2decoder = {
-    (0, 0): 'bilinear',
-    (0, 1): 'bilinear',
-    (1, 0): 'bilinear',
-    (1, 1): 'dedicom',
-}
-print(adj_mats_orig)
-edge_types = {k: len(v) for k, v in adj_mats_orig.items()}
-print(edge_types)
-num_edge_types = sum(edge_types.values())
-print("Edge types:", "%d" % num_edge_types)
+    a =  0
+    count = 0
+    for line in reader:
+        #print(line)
+        count = count + 1
+        if a==0:
+            a=1
+            continue
+        if count % 5000 == 0:
+            print("count: ",count, ", ", line)
+        gene_drug_adj[hash_gene(int(line[1])), hash_drug(line[0])] = 1
+    print("hey")
+    print(gene_drug_adj)
+    drug_gene_adj = gene_drug_adj.transpose(copy=True)
+    f.close()
 
 
 
+    # drug_drug check
 
 
-###########################################################
-#
-# Settings and placeholders
-#
-###########################################################
-
-flags = tf.app.flags
-FLAGS = flags.FLAGS
-flags.DEFINE_integer('neg_sample_size', 1, 'Negative sample size.')
-flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 50, 'Number of epochs to train.')
-flags.DEFINE_integer('hidden1', 64, 'Number of units in hidden layer 1.')
-flags.DEFINE_integer('hidden2', 32, 'Number of units in hidden layer 2.')
-flags.DEFINE_float('weight_decay', 0, 'Weight for L2 loss on embedding matrix.')
-flags.DEFINE_float('dropout', 0.1, 'Dropout rate (1 - keep probability).')
-flags.DEFINE_float('max_margin', 0.1, 'Max margin parameter in hinge loss')
-flags.DEFINE_integer('batch_size', 512, 'minibatch size.')
-flags.DEFINE_boolean('bias', True, 'Bias term.')
-flags.DEFINE_string("f", "", "kernel")
-# Important -- Do not evaluate/print validation performance every iteration as it can take
-# substantial amount of time
-PRINT_PROGRESS_EVERY = 150
-
-print("Defining placeholders")
-placeholders = construct_placeholders(edge_types)
-print(placeholders)
+    #drug_drug_adj_list = []
+    #tmp = np.dot(drug_gene_adj, gene_drug_adj)
+    #for i in range(n_drugdrug_rel_types):
+    #    mat = np.zeros((n_drugs, n_drugs))
+    #    for d1, d2 in combinations(list(range(n_drugs)), 2):
+    #        if tmp[d1, d2] == i + 4:
+    #            mat[d1, d2] = mat[d2, d1] = 1.
+    #    drug_drug_adj_list.append(sp.csr_matrix(mat))
+    #    print("hmm")
+    #    print(drug_drug_adj_list)
+    # drug_degrees_list = [np.array(drug_adj.sum(axis=0)).squeeze() for drug_adj in drug_drug_adj_list]
 
 
+    drug_drug_adj_list = []
+
+    # category
+    df = pd.read_csv('/mnt/nas2/seogyeong/bio-decagon-effectcategories.csv', sep=',', header=0)
+    print(type(df.values))
+    print(df.values.T[0])
+    category = df.values.T[0]
+
+    category_count = 0
+
+    for cat in category:
+        print("category_count: ", category_count, ", ", cat)
+        gene_drug_adj = sp.csr_matrix((2* drug_n, 2* drug_n), dtype=np.int8)
+        f = open("/mnt/nas2/seogyeong/bio-decagon-combo.csv")
+        reader = csv.reader(f)
+        category_count = category_count + 1
+        for line in reader:
+            if line[2] == cat:
+                gene_drug_adj[hash_drug(line[0]), hash_drug(line[1]) ] = 1
+                gene_drug_adj[hash_drug(line[1]), hash_drug(line[0]) ] = 1
+        drug_drug_adj_list.append(gene_drug_adj)
+        f.close()
+
+    drug_degrees_list = [np.array(drug_adj.sum(axis=0)).squeeze() for drug_adj in drug_drug_adj_list]
+
+    print(drug_drug_adj_list)
+    print("GHHHHHHHHHHHHHHHHH")
+    print(drug_degrees_list)
 
 
-###########################################################
-#
-# Create minibatch iterator, model and optimizer
-#
-###########################################################
+    # data representation
+    adj_mats_orig = {
+        (0, 0): [gene_adj, gene_adj.transpose(copy=True)],
+        (0, 1): [gene_drug_adj],
+        (1, 0): [drug_gene_adj],
+        (1, 1): drug_drug_adj_list + [x.transpose(copy=True) for x in drug_drug_adj_list],
+    }
 
-# I changed decagon/deep/minibatch code (def mask_test_edges)
+
+    degrees = {
+        0: [gene_degrees, gene_degrees],
+        1: drug_degrees_list + drug_degrees_list,
+    }
 
 
-print("Create minibatch iterator")
-print("adj_mats_orig")
-print(adj_mats_orig)
-print("feat")
-print(feat)
-print("edge_types")
-print("FLAGS.batch_size")
-print(FLAGS.batch_size)
-print("val_test_size")
-print(val_test_size)
 
-minibatch = EdgeMinibatchIterator(
-    adj_mats=adj_mats_orig,
-    feat=feat,
-    edge_types=edge_types,
-    batch_size=FLAGS.batch_size,
-    val_test_size=val_test_size
-)
 
-print("Create model")
-model = DecagonModel(
-    placeholders=placeholders,
-    num_feat=num_feat,
-    nonzero_feat=nonzero_feat,
-    edge_types=edge_types,
-    decoders=edge_type2decoder,
-)
+    # featureless (genes)
+    gene_feat = sp.identity(gene_max)
+    gene_nonzero_feat, gene_num_feat = gene_feat.shape
+    gene_feat = preprocessing.sparse_to_tuple(gene_feat.tocoo())
 
-print("Create optimizer")
-with tf.name_scope('optimizer'):
-    opt = DecagonOptimizer(
-        embeddings=model.embeddings,
-        latent_inters=model.latent_inters,
-        latent_varies=model.latent_varies,
-        degrees=degrees,
+    # features (drugs)
+    drug_feat = sp.identity(drug_max)
+    drug_nonzero_feat, drug_num_feat = drug_feat.shape
+    drug_feat = preprocessing.sparse_to_tuple(drug_feat.tocoo())
+
+    # data representation
+    num_feat = {
+        0: gene_num_feat,
+        1: drug_num_feat,
+    }
+    nonzero_feat = {
+        0: gene_nonzero_feat,
+        1: drug_nonzero_feat,
+    }
+    feat = {
+        0: gene_feat,
+        1: drug_feat,
+    }
+
+    edge_type2dim = {k: [adj.shape for adj in adjs] for k, adjs in adj_mats_orig.items()}
+    edge_type2decoder = {
+        (0, 0): 'bilinear',
+        (0, 1): 'bilinear',
+        (1, 0): 'bilinear',
+        (1, 1): 'dedicom',
+    }
+    print(adj_mats_orig)
+    edge_types = {k: len(v) for k, v in adj_mats_orig.items()}
+    print(edge_types)
+    num_edge_types = sum(edge_types.values())
+    print("Edge types:", "%d" % num_edge_types)
+
+
+
+
+
+    ###########################################################
+    #
+    # Settings and placeholders
+    #
+    ###########################################################
+
+    flags = tf.app.flags
+    FLAGS = flags.FLAGS
+    flags.DEFINE_integer('neg_sample_size', 1, 'Negative sample size.')
+    flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
+    flags.DEFINE_integer('epochs', 50, 'Number of epochs to train.')
+    flags.DEFINE_integer('hidden1', 64, 'Number of units in hidden layer 1.')
+    flags.DEFINE_integer('hidden2', 32, 'Number of units in hidden layer 2.')
+    flags.DEFINE_float('weight_decay', 0, 'Weight for L2 loss on embedding matrix.')
+    flags.DEFINE_float('dropout', 0.1, 'Dropout rate (1 - keep probability).')
+    flags.DEFINE_float('max_margin', 0.1, 'Max margin parameter in hinge loss')
+    flags.DEFINE_integer('batch_size', 512, 'minibatch size.')
+    flags.DEFINE_boolean('bias', True, 'Bias term.')
+    flags.DEFINE_string("f", "", "kernel")
+    # Important -- Do not evaluate/print validation performance every iteration as it can take
+    # substantial amount of time
+    PRINT_PROGRESS_EVERY = 150
+
+    print("Defining placeholders")
+    placeholders = construct_placeholders(edge_types)
+    print(placeholders)
+
+
+
+
+    ###########################################################
+    #
+    # Create minibatch iterator, model and optimizer
+    #
+    ###########################################################
+
+    # I changed decagon/deep/minibatch code (def mask_test_edges)
+
+
+    print("Create minibatch iterator")
+    print("adj_mats_orig")
+    print(adj_mats_orig)
+    print("feat")
+    print(feat)
+    print("edge_types")
+    print("FLAGS.batch_size")
+    print(FLAGS.batch_size)
+    print("val_test_size")
+    print(val_test_size)
+
+    minibatch = EdgeMinibatchIterator(
+        adj_mats=adj_mats_orig,
+        feat=feat,
         edge_types=edge_types,
-        edge_type2dim=edge_type2dim,
-        placeholders=placeholders,
         batch_size=FLAGS.batch_size,
-        margin=FLAGS.max_margin
+        val_test_size=val_test_size
     )
 
-print("Initialize session")
-sess = tf.Session()
-sess.run(tf.global_variables_initializer())
-feed_dict = {}
+    print("Create model")
+    model = DecagonModel(
+        placeholders=placeholders,
+        num_feat=num_feat,
+        nonzero_feat=nonzero_feat,
+        edge_types=edge_types,
+        decoders=edge_type2decoder,
+    )
+
+    print("Create optimizer")
+    with tf.name_scope('optimizer'):
+        opt = DecagonOptimizer(
+            embeddings=model.embeddings,
+            latent_inters=model.latent_inters,
+            latent_varies=model.latent_varies,
+            degrees=degrees,
+            edge_types=edge_types,
+            edge_type2dim=edge_type2dim,
+            placeholders=placeholders,
+            batch_size=FLAGS.batch_size,
+            margin=FLAGS.max_margin
+        )
+
+    print("Initialize session")
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
+    feed_dict = {}
 
 
 
 
-###########################################################
-#
-# Train model
-#
-###########################################################
+    ###########################################################
+    #
+    # Train model
+    #
+    ###########################################################
 
-print("Train model")
-for epoch in range(FLAGS.epochs):
+    print("Train model")
+    for epoch in range(FLAGS.epochs):
 
-    minibatch.shuffle()
-    itr = 0
-    while not minibatch.end():
-        # Construct feed dictionary
-        feed_dict = minibatch.next_minibatch_feed_dict(placeholders=placeholders)
-        feed_dict = minibatch.update_feed_dict(
-            feed_dict=feed_dict,
-            dropout=FLAGS.dropout,
-            placeholders=placeholders)
+        minibatch.shuffle()
+        itr = 0
+        while not minibatch.end():
+            # Construct feed dictionary
+            feed_dict = minibatch.next_minibatch_feed_dict(placeholders=placeholders)
+            feed_dict = minibatch.update_feed_dict(
+                feed_dict=feed_dict,
+                dropout=FLAGS.dropout,
+                placeholders=placeholders)
 
-        t = time.time()
+            t = time.time()
 
-        # Training step: run single weight update
-        outs = sess.run([opt.opt_op, opt.cost, opt.batch_edge_type_idx], feed_dict=feed_dict)
-        train_cost = outs[1]
-        batch_edge_type = outs[2]
+            # Training step: run single weight update
+            outs = sess.run([opt.opt_op, opt.cost, opt.batch_edge_type_idx], feed_dict=feed_dict)
+            train_cost = outs[1]
+            batch_edge_type = outs[2]
 
-        if itr % PRINT_PROGRESS_EVERY == 0:
-            val_auc, val_auprc, val_apk = get_accuracy_scores(
-                minibatch.val_edges, minibatch.val_edges_false,
-                minibatch.idx2edge_type[minibatch.current_edge_type_idx])
+            if itr % PRINT_PROGRESS_EVERY == 0:
+                val_auc, val_auprc, val_apk = get_accuracy_scores(
+                    minibatch.val_edges, minibatch.val_edges_false,
+                    minibatch.idx2edge_type[minibatch.current_edge_type_idx])
 
-            print("Epoch:", "%04d" % (epoch + 1), "Iter:", "%04d" % (itr + 1), "Edge:", "%04d" % batch_edge_type,
-                  "train_loss=", "{:.5f}".format(train_cost),
-                  "val_roc=", "{:.5f}".format(val_auc), "val_auprc=", "{:.5f}".format(val_auprc),
-                  "val_apk=", "{:.5f}".format(val_apk), "time=", "{:.5f}".format(time.time() - t))
+                print("Epoch:", "%04d" % (epoch + 1), "Iter:", "%04d" % (itr + 1), "Edge:", "%04d" % batch_edge_type,
+                      "train_loss=", "{:.5f}".format(train_cost),
+                      "val_roc=", "{:.5f}".format(val_auc), "val_auprc=", "{:.5f}".format(val_auprc),
+                      "val_apk=", "{:.5f}".format(val_apk), "time=", "{:.5f}".format(time.time() - t))
 
-        itr += 1
+            itr += 1
 
-print("Optimization finished!")
+    print("Optimization finished!")
 
-for et in range(num_edge_tdypes):
-    roc_score, auprc_score, apk_score = get_accuracy_scores(
-        minibatch.test_edges, minibatch.test_edges_false, minibatch.idx2edge_type[et])
-    print("Edge type=", "[%02d, %02d, %02d]" % minibatch.idx2edge_type[et])
-    print("Edge type:", "%04d" % et, "Test AUROC score", "{:.5f}".format(roc_score))
-    print("Edge type:", "%04d" % et, "Test AUPRC score", "{:.5f}".format(auprc_score))
-    print("Edge type:", "%04d" % et, "Test AP@k score", "{:.5f}".format(apk_score))
-    print()
+    for et in range(num_edge_tdypes):
+        roc_score, auprc_score, apk_score = get_accuracy_scores(
+            minibatch.test_edges, minibatch.test_edges_false, minibatch.idx2edge_type[et])
+        print("Edge type=", "[%02d, %02d, %02d]" % minibatch.idx2edge_type[et])
+        print("Edge type:", "%04d" % et, "Test AUROC score", "{:.5f}".format(roc_score))
+        print("Edge type:", "%04d" % et, "Test AUPRC score", "{:.5f}".format(auprc_score))
+        print("Edge type:", "%04d" % et, "Test AP@k score", "{:.5f}".format(apk_score))
+        print()
+
+
